@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if user is logged in
+    function loggedIn() {
+      return request.auth != null;
+    }
+    
+    // Retrieve user document from the global users collection
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check if user has Super Admin role
+    function isSuperAdmin() {
+      return loggedIn() && getUserData().role == 'super_admin';
+    }
+    
+    // Verify if user belongs to the specified school and is active
+    function isSchoolMember(schoolId) {
+      return loggedIn() && 
+             getUserData().schoolId == schoolId && 
+             getUserData().isActive == true;
+    }
+
+    // --- USERS COLLECTION ---
+    match /users/{userId} {
+      // Users can read their own profile, Super Admin can read all, and members of the same school can read profiles in their tenant.
+      allow read: if loggedIn() && (
+        request.auth.uid == userId || 
+        isSuperAdmin() || 
+        (resource != null && getUserData().schoolId == resource.data.schoolId)
+      );
+      // Only Super Admins can write user profiles, except users themselves who can update minor fields (like photoUrl or details).
+      allow create: if isSuperAdmin() || (loggedIn() && request.auth.uid == userId);
+      allow update: if isSuperAdmin() || (
+        loggedIn() && 
+        request.auth.uid == userId && 
+        request.resource.data.role == resource.data.role && 
+        request.resource.data.schoolId == resource.data.schoolId
+      );
+      allow delete: if isSuperAdmin();
+    }
+    
+    // --- SCHOOLS COLLECTION ---
+    match /schools/{schoolId} {
+      // Members of a school can read their school info. Super Admin has full access.
+      allow read: if loggedIn() && (isSuperAdmin() || getUserData().schoolId == schoolId);
+      allow write: if isSuperAdmin();
+    }
+
+    // --- OTHER FLAT COLLECTIONS (Classes, Sections, Subjects, Attendance, Homework, Materials, Exams, Marks, Fees, Leaves, Messages) ---
+    // Enforce school isolation at document level using schoolId field
+    match /{document=**} {
+      
+      // Prevent wild access to other school's documents
+      allow read: if loggedIn() && (
+        isSuperAdmin() || (
+          resource != null && 
+          resource.data.schoolId != null && 
+          isSchoolMember(resource.data.schoolId)
+        )
+      );
+      
+      allow write: if loggedIn() && (
+        isSuperAdmin() || (
+          // For updates/deletes, ensure current document belongs to the user's school
+          resource != null && 
+          resource.data.schoolId != null && 
+          isSchoolMember(resource.data.schoolId)
+        ) || (
+          // For creates, ensure incoming document has the correct schoolId matching the user's profile
+          resource == null && 
+          request.resource.data.schoolId != null && 
+          isSchoolMember(request.resource.data.schoolId)
+        )
+      );
+      
+    }
+  }
+}
