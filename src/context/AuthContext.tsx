@@ -60,16 +60,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!profile) {
         const preCreatedUser = await dbService.getUserByEmail(email);
         if (preCreatedUser) {
-          // Bind the Google UID to the pre-created user document
-          profile = await dbService.createUser(uid, {
-            ...preCreatedUser,
+          const oldUid = preCreatedUser.uid;
+          // Bind the Google UID to the pre-created user document in-place
+          const updatedFields = {
+            uid: uid,
             photoUrl: photoUrl || preCreatedUser.photoUrl || '',
             name: name || preCreatedUser.name
-          });
-          // Clean up the temporary pre-created document to prevent duplicate entries
-          if (preCreatedUser.uid && preCreatedUser.uid !== uid) {
-            await dbService.deleteUser(preCreatedUser.uid);
-          }
+          };
+          await dbService.updateUserByDocId(preCreatedUser.docId, updatedFields);
+          profile = {
+            ...preCreatedUser,
+            ...updatedFields
+          };
+          // Migrate all database references from the old temporary UID to the new real UID
+          await dbService.migrateUserReferences(oldUid, uid, profile.role, profile.schoolId);
         }
       }
 

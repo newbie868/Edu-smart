@@ -7,9 +7,9 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Retrieve user document from the global users collection
+    // Retrieve user document from the global user_mappings collection
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return get(/databases/$(database)/documents/user_mappings/$(request.auth.uid)).data;
     }
     
     // Check if user has Super Admin role
@@ -24,23 +24,71 @@ service cloud.firestore {
              getUserData().isActive == true;
     }
 
+    // Check if user is a principal of the specified school and is active
+    function isPrincipalOf(schoolId) {
+      return loggedIn() && 
+             getUserData().role == 'principal' && 
+             getUserData().schoolId == schoolId && 
+             getUserData().isActive == true;
+    }
+
+    // --- USER MAPPINGS COLLECTION ---
+    match /user_mappings/{uid} {
+      allow read: if loggedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow write: if isSuperAdmin() || (
+        loggedIn() && 
+        request.auth.uid == uid &&
+        get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.email.toLowerCase() == request.auth.token.email.toLowerCase() &&
+        request.resource.data.role == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.role &&
+        request.resource.data.schoolId == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.schoolId &&
+        request.resource.data.isActive == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.isActive
+      );
+    }
+
     // --- USERS COLLECTION ---
     match /users/{userId} {
-      // Users can read their own profile, Super Admin can read all, and members of the same school can read profiles in their tenant.
+      // Users can read their own profile (by UID or email during login), Super Admin can read all, and members of the same school can read profiles in their tenant.
       allow read: if loggedIn() && (
-        request.auth.uid == userId || 
+        resource.data.uid == request.auth.uid || 
+        resource.data.email.toLowerCase() == request.auth.token.email.toLowerCase() ||
         isSuperAdmin() || 
         (resource != null && getUserData().schoolId == resource.data.schoolId)
       );
-      // Only Super Admins can write user profiles, except users themselves who can update minor fields (like photoUrl or details).
-      allow create: if isSuperAdmin() || (loggedIn() && request.auth.uid == userId);
+      // Only Super Admins and the Principal of the same school can create user profiles.
+      allow create: if isSuperAdmin() || (
+        loggedIn() && 
+        isPrincipalOf(request.resource.data.schoolId) &&
+        (request.resource.data.role == 'teacher' || request.resource.data.role == 'student' || request.resource.data.role == 'parent')
+      );
+      // Only Super Admins, the Principal of the same school, or the user themselves (for UID binding / minor updates) can update profiles.
       allow update: if isSuperAdmin() || (
         loggedIn() && 
-        request.auth.uid == userId && 
-        request.resource.data.role == resource.data.role && 
-        request.resource.data.schoolId == resource.data.schoolId
+        (
+          // Case 1: Standard update by already-bound user
+          (resource.data.uid == request.auth.uid &&
+           request.resource.data.uid == request.auth.uid &&
+           request.resource.data.role == resource.data.role && 
+           request.resource.data.schoolId == resource.data.schoolId)
+          ||
+          // Case 2: First-time binding of Google UID to pre-created user
+          (resource.data.email.toLowerCase() == request.auth.token.email.toLowerCase() &&
+           request.resource.data.email == resource.data.email &&
+           request.resource.data.uid == request.auth.uid &&
+           request.resource.data.role == resource.data.role &&
+           request.resource.data.schoolId == resource.data.schoolId)
+          ||
+          // Case 3: Principal updating a user in their school
+          (isPrincipalOf(resource.data.schoolId) &&
+           request.resource.data.schoolId == resource.data.schoolId &&
+           (resource.data.role == 'teacher' || resource.data.role == 'student' || resource.data.role == 'parent') &&
+           request.resource.data.role == resource.data.role)
+        )
       );
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || (
+        loggedIn() && 
+        isPrincipalOf(resource.data.schoolId) &&
+        (resource.data.role == 'teacher' || resource.data.role == 'student' || resource.data.role == 'parent')
+      );
     }
     
     // --- SCHOOLS COLLECTION ---

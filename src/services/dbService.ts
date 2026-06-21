@@ -30,14 +30,15 @@ export const dbService = {
 
   // --- USERS ---
   async getUser(uid: string): Promise<any> {
-    const snap = await getDoc(doc(db, 'users', uid));
-    return snap.exists() ? (snap.data() as any) : null;
+    const q = query(collection(db, 'users'), where('uid', '==', uid));
+    const snap = await getDocs(q);
+    return snap.empty ? null : { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
   },
 
   async getUserByEmail(email: string): Promise<any> {
     const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
     const snap = await getDocs(q);
-    return snap.empty ? null : (snap.docs[0].data() as any);
+    return snap.empty ? null : { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
   },
 
   async createUser(uid: string, userData: any): Promise<any> {
@@ -48,13 +49,59 @@ export const dbService = {
       ...userData,
       email: userData.email.toLowerCase()
     };
-    await setDoc(doc(db, 'users', uid), newUser);
-    return newUser;
+    // Let Firestore auto-generate the document ID
+    const docRef = await addDoc(collection(db, 'users'), newUser);
+    return { docId: docRef.id, ...newUser };
   },
 
   async updateUser(uid: string, data: any): Promise<any> {
-    await updateDoc(doc(db, 'users', uid), data);
-    return { uid, ...data };
+    const q = query(collection(db, 'users'), where('uid', '==', uid));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docId = snap.docs[0].id;
+      const userDoc = snap.docs[0].data();
+      await updateDoc(doc(db, 'users', docId), data);
+      
+      // Sync to user_mappings if uid is valid
+      const syncFields: any = {};
+      if (data.role !== undefined) syncFields.role = data.role;
+      if (data.schoolId !== undefined) syncFields.schoolId = data.schoolId;
+      if (data.isActive !== undefined) syncFields.isActive = data.isActive;
+      if (Object.keys(syncFields).length > 0) {
+        try {
+          await updateDoc(doc(db, 'user_mappings', uid), syncFields);
+        } catch (err) {
+          // It's possible the mapping document doesn't exist yet (user hasn't logged in first time)
+          console.warn("Could not sync user_mappings (user may not have logged in yet):", err);
+        }
+      }
+      return { docId, uid, ...data };
+    }
+    throw new Error("User not found");
+  },
+
+  async updateUserByDocId(docId: string, data: any): Promise<any> {
+    const snap = await getDoc(doc(db, 'users', docId));
+    if (snap.exists()) {
+      const userDoc = snap.data();
+      await updateDoc(doc(db, 'users', docId), data);
+      
+      const uid = data.uid || userDoc.uid;
+      // Sync to user_mappings if the user has logged in and has a mapping document
+      if (uid && !uid.startsWith('user-')) {
+        const syncFields: any = { docId };
+        if (data.role !== undefined || userDoc.role !== undefined) syncFields.role = data.role !== undefined ? data.role : userDoc.role;
+        if (data.schoolId !== undefined || userDoc.schoolId !== undefined) syncFields.schoolId = data.schoolId !== undefined ? data.schoolId : userDoc.schoolId;
+        if (data.isActive !== undefined || userDoc.isActive !== undefined) syncFields.isActive = data.isActive !== undefined ? data.isActive : userDoc.isActive;
+        try {
+          await setDoc(doc(db, 'user_mappings', uid), syncFields, { merge: true });
+        } catch (err) {
+          console.warn("Could not sync user_mappings:", err);
+        }
+      }
+      return { docId, ...userDoc, ...data };
+    }
+    throw new Error("User not found");
   },
 
   async getUsers(schoolId: string | null): Promise<any[]> {
@@ -62,7 +109,7 @@ export const dbService = {
       ? query(collection(db, 'users'), where('schoolId', '==', schoolId))
       : query(collection(db, 'users'));
     const snap = await getDocs(q);
-    return snap.docs.map(d => d.data() as any);
+    return snap.docs.map(d => ({ docId: d.id, ...d.data() as any }));
   },
 
   // --- ACADEMICS (CLASSES, SECTIONS, SUBJECTS) ---
@@ -357,8 +404,143 @@ export const dbService = {
     await deleteDoc(doc(db, 'notices', noticeId));
   },
 
+  async migrateUserReferences(oldUid: string, newUid: string, role: string, schoolId: string | null): Promise<void> {
+    if (oldUid === newUid) return;
+
+    // 1. School (principal link)
+    if (role === 'principal' && schoolId) {
+      await updateDoc(doc(db, 'schools', schoolId), { principalId: newUid });
+    }
+
+    // 2. Sections (class teacher link)
+    if (role === 'teacher' && schoolId) {
+      const sectionsQuery = query(collection(db, 'sections'), where('classTeacherId', '==', oldUid));
+      const sectionsSnap = await getDocs(sectionsQuery);
+      for (const sectionDoc of sectionsSnap.docs) {
+        await updateDoc(doc(db, 'sections', sectionDoc.id), { classTeacherId: newUid });
+      }
+    }
+
+    // 3. Timetable slots (teacher link)
+    if (role === 'teacher' && schoolId) {
+      const timetableQuery = query(collection(db, 'timetable'), where('schoolId', '==', schoolId));
+      const timetableSnap = await getDocs(timetableQuery);
+      for (const ttDoc of timetableSnap.docs) {
+        const data = ttDoc.data();
+        if (data.slots) {
+          let changed = false;
+          const updatedSlots = data.slots.map((slot: any) => {
+            if (slot.teacherId === oldUid) {
+              changed = true;
+              return { ...slot, teacherId: newUid };
+            }
+            return slot;
+          });
+          if (changed) {
+            await updateDoc(doc(db, 'timetable', ttDoc.id), { slots: updatedSlots });
+          }
+        }
+      }
+    }
+
+    // 4. Parents (referencing a student)
+    if (role === 'student' && schoolId) {
+      const parentsQuery = query(
+        collection(db, 'users'), 
+        where('schoolId', '==', schoolId),
+        where('role', '==', 'parent'),
+        where('parentDetails.studentIds', 'array-contains', oldUid)
+      );
+      const parentsSnap = await getDocs(parentsQuery);
+      for (const parentDoc of parentsSnap.docs) {
+        const parentData = parentDoc.data();
+        if (parentData.parentDetails && parentData.parentDetails.studentIds) {
+          const updatedStudentIds = parentData.parentDetails.studentIds.map(
+            (sId: string) => sId === oldUid ? newUid : sId
+          );
+          await updateDoc(doc(db, 'users', parentDoc.id), {
+            parentDetails: {
+              ...parentData.parentDetails,
+              studentIds: updatedStudentIds
+            }
+          });
+        }
+      }
+    }
+
+    // 5. Students (referencing a parent)
+    if (role === 'parent' && schoolId) {
+      const studentsQuery = query(
+        collection(db, 'users'),
+        where('schoolId', '==', schoolId),
+        where('role', '==', 'student'),
+        where('studentDetails.parentId', '==', oldUid)
+      );
+      const studentsSnap = await getDocs(studentsQuery);
+      for (const studentDoc of studentsSnap.docs) {
+        const studentData = studentDoc.data();
+        if (studentData.studentDetails) {
+          await updateDoc(doc(db, 'users', studentDoc.id), {
+            studentDetails: {
+              ...studentData.studentDetails,
+              parentId: newUid
+            }
+          });
+        }
+      }
+    }
+
+    // 6. Marks (referencing a student)
+    if (role === 'student' && schoolId) {
+      const marksQuery = query(collection(db, 'marks'), where('schoolId', '==', schoolId), where('studentId', '==', oldUid));
+      const marksSnap = await getDocs(marksQuery);
+      for (const markDoc of marksSnap.docs) {
+        const markData = markDoc.data();
+        const newMarkDocId = `${markData.examId}_${newUid}`;
+        await setDoc(doc(db, 'marks', newMarkDocId), { ...markData, studentId: newUid });
+        await deleteDoc(doc(db, 'marks', markDoc.id));
+      }
+    }
+
+    // 7. Fees (referencing a student)
+    if (role === 'student' && schoolId) {
+      const feesQuery = query(collection(db, 'fees'), where('schoolId', '==', schoolId), where('studentId', '==', oldUid));
+      const feesSnap = await getDocs(feesQuery);
+      for (const feeDoc of feesSnap.docs) {
+        await updateDoc(doc(db, 'fees', feeDoc.id), { studentId: newUid });
+      }
+    }
+
+    // 8. Attendance records (referencing a student in records map)
+    if (role === 'student' && schoolId) {
+      const attendanceQuery = query(collection(db, 'attendance'), where('schoolId', '==', schoolId));
+      const attendanceSnap = await getDocs(attendanceQuery);
+      for (const attDoc of attendanceSnap.docs) {
+        const attData = attDoc.data();
+        if (attData.records && attData.records[oldUid]) {
+          const updatedRecords = { ...attData.records };
+          updatedRecords[newUid] = updatedRecords[oldUid];
+          delete updatedRecords[oldUid];
+          await updateDoc(doc(db, 'attendance', attDoc.id), { records: updatedRecords });
+        }
+      }
+    }
+  },
+
   async deleteUser(uid: string): Promise<void> {
-    await deleteDoc(doc(db, 'users', uid));
+    const q = query(collection(db, 'users'), where('uid', '==', uid));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docId = snap.docs[0].id;
+      await deleteDoc(doc(db, 'users', docId));
+      
+      // Also delete the user mapping if it exists
+      try {
+        await deleteDoc(doc(db, 'user_mappings', uid));
+      } catch (err) {
+        console.warn("Could not delete user mapping:", err);
+      }
+    }
   },
 
   // --- STORAGE FILE UPLOAD ---
