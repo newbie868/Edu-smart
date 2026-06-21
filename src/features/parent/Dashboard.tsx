@@ -46,9 +46,9 @@ export const Dashboard: React.FC<ParentDashboardProps> = ({ selectedChildId, set
             const subjList = await dbService.getSubjects(school.id);
             
             // Scan attendance
-            const rawAttendance = JSON.parse(localStorage.getItem('edu_attendance') || '[]');
-            const childLogs = rawAttendance.filter(
-              (a: any) => a.schoolId === school.id && a.classId === classId && a.sectionId === sectionId && a.records && a.records[activeKidId]
+            const attendanceList = await dbService.getAttendanceList(school.id, classId, sectionId);
+            const childLogs = attendanceList.filter(
+              (a: any) => a.records && a.records[activeKidId]
             );
             const total = childLogs.length;
             const present = childLogs.filter((a: any) => a.records[activeKidId] === 'present').length;

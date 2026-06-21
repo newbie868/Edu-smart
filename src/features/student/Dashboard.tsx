@@ -26,29 +26,15 @@ export const Dashboard: React.FC = () => {
         const noticeList = await dbService.getNotices(school.id);
         
         // Calculate attendance
-        const attendanceList = await dbService.getUsers(school.id); // Sandbox loads all users
-        // Let's get attendance records for Springfield
-        // Since we have Springfield seed data:
-        // Springfield Bart Simpson is in class-10, sect-10a
-        // Let's check attendance collections:
-        // Springfield Bart Simpson has 1 attendance record (marked 'present')
-        // So let's calculate attendance percentage.
-        // In firebase.ts, we can fetch all attendance sheets
-        // We'll simulate a 100% or calculate if there are records
-        // Let's implement a quick calculation:
-        // We can fetch attendance records for this student's class and section.
-        // For each sheet, check the record for user.uid
-        // Let's calculate:
-        const classes = await dbService.getClasses(school.id);
-        const sections = await dbService.getSections(school.id);
-        
-        // Fetch all attendance sheets for this class and section
-        // (For simplicity in the demo, we can count matching sheets)
-        // Let's scan Springfield attendance sheets:
-        // We'll calculate a realistic attendance percentage:
-        const attCount = 1;
-        const presentCount = 1;
-        setAttendancePercent(100); // Default to 100% for Springfield demo
+        const attendanceList = await dbService.getAttendanceList(school.id, classId, sectionId);
+        const studentLogs = attendanceList.filter(
+          (a: any) => a.records && a.records[user.uid]
+        );
+        const total = studentLogs.length;
+        const present = studentLogs.filter((a: any) => a.records[user.uid] === 'present').length;
+        const late = studentLogs.filter((a: any) => a.records[user.uid] === 'late').length;
+        const rate = total === 0 ? 100 : Math.round(((present + late * 0.5) / total) * 100);
+        setAttendancePercent(rate);
 
         setTimetable(ttList);
         setHomeworks(hwList);

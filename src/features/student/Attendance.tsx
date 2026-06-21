@@ -15,21 +15,10 @@ export const Attendance: React.FC = () => {
       try {
         const { classId, sectionId } = user.studentDetails;
         
-        // For the Springfield sandbox, we fetch all attendance records for this class/section
-        // and filter the user's personal log
-        // Let's query Springfield attendance records:
-        // In dbService: `getAttendance` is schoolId_classId_sectionId_date
-        // Or we can scan all attendance sheets in LocalStorage
-        // Let's implement a robust scan:
-        const rawAttendance = JSON.parse(localStorage.getItem('edu_attendance') || '[]');
-        const studentLogs = rawAttendance
-          .filter((a: any) => 
-            a.schoolId === school.id && 
-            a.classId === classId && 
-            a.sectionId === sectionId && 
-            a.records && 
-            a.records[user.uid]
-          )
+        // Fetch all attendance records for this class/section
+        const attendanceList = await dbService.getAttendanceList(school.id, classId, sectionId);
+        const studentLogs = attendanceList
+          .filter((a: any) => a.records && a.records[user.uid])
           .map((a: any) => ({
             date: a.date,
             status: a.records[user.uid],

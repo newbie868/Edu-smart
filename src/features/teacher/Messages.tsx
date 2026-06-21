@@ -53,7 +53,7 @@ export const Messages: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Optional: Set up polling (1.5s interval) for sandbox/mock updates or actual DB additions
+  // Optional: Set up polling (3s interval) for database updates
   useEffect(() => {
     let interval: any;
     if (selectedParentId) {

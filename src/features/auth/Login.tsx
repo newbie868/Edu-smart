@@ -1,26 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Sparkles, Shield, Compass, BookOpen, UserCheck, Star } from 'lucide-react';
+import { LogIn, Shield, Compass, BookOpen, Star } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, loginSandbox, error, loading } = useAuth();
-  const [selectedSandboxUid, setSelectedSandboxUid] = useState('user-superadmin');
-
-  const sandboxUsers = [
-    { uid: 'user-superadmin', label: 'Super Admin (Platform Owner)', desc: ' Elizabeth Vance' },
-    { uid: 'user-principal-skinner', label: 'Principal (Academic Admin)', desc: ' Seymour Skinner' },
-    { uid: 'user-teacher-krabappel', label: 'Teacher (Edna Krabappel)', desc: ' Math & English' },
-    { uid: 'user-parent-homer', label: 'Parent (Homer Simpson)', desc: ' Bart & Lisa\'s Parent' },
-    { uid: 'user-student-bart', label: 'Student (Bart Simpson)', desc: ' Grade 10 Student' },
-  ];
+  const { loginWithGoogle, error, loading } = useAuth();
 
   const handleGoogleLogin = () => {
     loginWithGoogle();
-  };
-
-  const handleSandboxLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginSandbox(selectedSandboxUid);
   };
 
   return (
@@ -184,81 +170,8 @@ export const Login: React.FC = () => {
             <span>{loading ? 'Authenticating...' : 'Sign In with Google'}</span>
           </button>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: '24px 0',
-            color: 'var(--text-muted)',
-            fontSize: '0.8rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
-          }}>
-            <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color)' }} />
-            <span style={{ padding: '0 12px', fontWeight: 600 }}>OR</span>
-            <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color)' }} />
-          </div>
 
-          {/* Sandbox Bypass Action */}
-          <form onSubmit={handleSandboxLogin}>
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              padding: '20px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-color)',
-              marginBottom: '20px'
-            }}>
-              <h4 style={{
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.02em',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <Sparkles size={14} style={{ color: 'var(--warning)' }} />
-                Developer Sandbox Bypass
-              </h4>
-              
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Choose Role to Simulate</label>
-                <select
-                  value={selectedSandboxUid}
-                  onChange={(e) => setSelectedSandboxUid(e.target.value)}
-                  className="form-select"
-                  style={{ fontSize: '0.9rem' }}
-                >
-                  {sandboxUsers.map(u => (
-                    <option key={u.uid} value={u.uid}>
-                      {u.label} - {u.desc}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-secondary"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <UserCheck size={16} />
-                <span>Enter Sandbox Demo</span>
-              </button>
-            </div>
-          </form>
-
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Edu-Smart v2.0 • Data isolated at query-level
             </span>

@@ -21,15 +21,9 @@ export const Attendance: React.FC<ParentAttendanceProps> = ({ selectedChildId })
         if (kid && kid.studentDetails) {
           const { classId, sectionId } = kid.studentDetails;
           
-          const rawAttendance = JSON.parse(localStorage.getItem('edu_attendance') || '[]');
-          const studentLogs = rawAttendance
-            .filter((a: any) => 
-              a.schoolId === school.id && 
-              a.classId === classId && 
-              a.sectionId === sectionId && 
-              a.records && 
-              a.records[selectedChildId]
-            )
+          const attendanceList = await dbService.getAttendanceList(school.id, classId, sectionId);
+          const studentLogs = attendanceList
+            .filter((a: any) => a.records && a.records[selectedChildId])
             .map((a: any) => ({
               date: a.date,
               status: a.records[selectedChildId]

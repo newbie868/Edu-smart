@@ -6,7 +6,7 @@ import {
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
-import { dbService, getDbMode, setDbMode } from '../services/dbService';
+import { dbService } from '../services/dbService';
 
 interface UserProfile {
   uid: string;
@@ -39,11 +39,8 @@ interface AuthContextType {
   school: SchoolProfile | null;
   loading: boolean;
   error: string | null;
-  dbMode: 'firebase' | 'sandbox';
   loginWithGoogle: () => Promise<void>;
-  loginSandbox: (uid: string) => Promise<void>;
   logout: () => Promise<void>;
-  toggleDbMode: (mode: 'firebase' | 'sandbox') => void;
   isPlanExpired: boolean;
 }
 
@@ -54,7 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [school, setSchool] = useState<SchoolProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dbMode, setDbModeState] = useState<'firebase' | 'sandbox'>(getDbMode());
 
   const checkUserStatus = async (uid: string, email: string, name: string, photoUrl?: string) => {
     try {
@@ -75,18 +71,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await dbService.deleteUser(preCreatedUser.uid);
           }
         }
-      }
-
-      // Auto-provision Super Admin if email matches admin@edusmart.com and no user exists
-      if (!profile && (email === 'admin@edusmart.com' || email.startsWith('admin@'))) {
-        profile = await dbService.createUser(uid, {
-          email,
-          name,
-          photoUrl: photoUrl || '',
-          role: 'super_admin',
-          schoolId: null,
-          isActive: true
-        });
       }
 
       if (!profile) {
@@ -130,8 +114,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      setDbMode('firebase');
-      setDbModeState('firebase');
       const result = await signInWithPopup(auth, googleProvider);
       if (result.user) {
         await checkUserStatus(
@@ -148,54 +130,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sandbox login helper (Instant login without popups)
-  const loginSandbox = async (uid: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      setDbMode('sandbox');
-      setDbModeState('sandbox');
-      const profile = await dbService.getUser(uid);
-      if (!profile) {
-        throw new Error("Sandbox user profile not found.");
-      }
-      if (!profile.isActive) {
-        throw new Error("Sandbox user is deactivated.");
-      }
-
-      setUser(profile as UserProfile);
-
-      if (profile.schoolId) {
-        const schoolProfile = await dbService.getSchool(profile.schoolId);
-        if (schoolProfile) {
-          if (!schoolProfile.isActive) {
-            setUser(null);
-            throw new Error(`The school "${schoolProfile.name}" is currently disabled.`);
-          }
-          setSchool(schoolProfile as SchoolProfile);
-        } else {
-          setSchool(null);
-        }
-      } else {
-        setSchool(null);
-      }
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || "Sandbox login failed.");
-      setUser(null);
-      setSchool(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Logout
   const logout = async () => {
     setLoading(true);
     try {
-      if (dbMode === 'firebase') {
-        await signOut(auth);
-      }
+      await signOut(auth);
       setUser(null);
       setSchool(null);
       setError(null);
@@ -206,50 +145,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Toggle Database Mode
-  const toggleDbMode = (mode: 'firebase' | 'sandbox') => {
-    setDbMode(mode);
-    setDbModeState(mode);
-    logout();
-  };
-
   // Check Firebase Session
   useEffect(() => {
-    if (dbMode === 'firebase') {
-      const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
-        if (fbUser) {
-          await checkUserStatus(
-            fbUser.uid,
-            fbUser.email || '',
-            fbUser.displayName || 'Google User',
-            fbUser.photoURL || undefined
-          );
-        } else {
-          setUser(null);
-          setSchool(null);
-          setLoading(false);
-        }
-      });
-      return () => unsubscribe();
-    } else {
-      // Local check
-      const savedUserUid = localStorage.getItem('edu_smart_sandbox_uid');
-      if (savedUserUid) {
-        loginSandbox(savedUserUid).catch(() => setLoading(false));
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      if (fbUser) {
+        await checkUserStatus(
+          fbUser.uid,
+          fbUser.email || '',
+          fbUser.displayName || 'Google User',
+          fbUser.photoURL || undefined
+        );
       } else {
+        setUser(null);
+        setSchool(null);
         setLoading(false);
       }
-    }
-  }, [dbMode]);
-
-  // Keep sandbox UID in localStorage for session persistence
-  useEffect(() => {
-    if (dbMode === 'sandbox' && user) {
-      localStorage.setItem('edu_smart_sandbox_uid', user.uid);
-    } else if (!user) {
-      localStorage.removeItem('edu_smart_sandbox_uid');
-    }
-  }, [user, dbMode]);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const isPlanExpired = React.useMemo(() => {
     if (!school) return false;
@@ -263,11 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       school,
       loading,
       error,
-      dbMode,
       loginWithGoogle,
-      loginSandbox,
       logout,
-      toggleDbMode,
       isPlanExpired
     }}>
       {children}

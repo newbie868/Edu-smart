@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Sun, Moon, LogOut, Database, AlertCircle } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertCircle } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({ title }) => {
-  const { user, school, dbMode, toggleDbMode, logout, isPlanExpired } = useAuth();
+  const { user, school, logout, isPlanExpired } = useAuth();
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('edu_smart_theme') as 'light' | 'dark') || 'light'
   );
@@ -79,36 +79,6 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
             {planStatus.text}
           </span>
         )}
-
-        {/* Database Mode Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={`badge ${dbMode === 'firebase' ? 'badge-primary' : 'badge-warning'}`} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px'
-          }}>
-            <Database size={14} />
-            {dbMode === 'firebase' ? 'Firebase Live' : 'Sandbox Demo'}
-          </span>
-          
-          <button 
-            onClick={() => toggleDbMode(dbMode === 'firebase' ? 'sandbox' : 'firebase')}
-            style={{
-              padding: '6px 10px',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer'
-            }}
-            title={`Switch to ${dbMode === 'firebase' ? 'Sandbox Mode' : 'Firebase Mode'}`}
-          >
-            Switch to {dbMode === 'firebase' ? 'Sandbox' : 'Firebase'}
-          </button>
-        </div>
 
         {/* Dark/Light mode toggle */}
         <button 

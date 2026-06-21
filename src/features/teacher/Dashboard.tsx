@@ -18,8 +18,7 @@ export const Dashboard: React.FC = () => {
         const subjList = await dbService.getSubjects(school.id);
         const noticeList = await dbService.getNotices(school.id);
         
-        // Find all timetable slots matching this teacher
-        // (For the sandbox fallback, we fetch all Springfield timetables and filter locally)
+        // Find all timetable slots matching this teacher by scanning timetables across classes and sections
         const classes = await dbService.getClasses(school.id);
         const sections = await dbService.getSections(school.id);
         
