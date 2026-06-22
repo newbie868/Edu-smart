@@ -54,8 +54,6 @@ export const Modal: React.FC<ModalProps> = ({
         style={{
           width: '100%',
           maxWidth,
-          maxHeight: '90vh',
-          minHeight: 0,
           margin: 'auto',
           display: 'flex',
           flexDirection: 'column',
@@ -72,7 +70,8 @@ export const Modal: React.FC<ModalProps> = ({
           borderBottom: '1px solid var(--border-color)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexShrink: 0
         }}>
           <h3 style={{
             fontSize: '1.25rem',
@@ -88,9 +87,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Content */}
         <div style={{
-          padding: '24px',
-          overflowY: 'auto',
-          flex: 1
+          padding: '24px'
         }}>
           {children}
         </div>
