@@ -6,6 +6,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -14,6 +15,7 @@ export const Modal: React.FC<ModalProps> = ({
   onClose, 
   title, 
   children, 
+  footer,
   size = 'md' 
 }) => {
   useEffect(() => {
@@ -40,28 +42,28 @@ export const Modal: React.FC<ModalProps> = ({
       inset: 0,
       zIndex: 1000,
       display: 'flex',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'center',
-      padding: '40px 16px',
+      padding: '24px 16px',
       background: 'rgba(15, 23, 42, 0.4)',
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
-      animation: 'fadeInOverlay 0.2s ease-out forwards',
-      overflowY: 'auto'
+      animation: 'fadeInOverlay 0.2s ease-out forwards'
     }}>
       <div 
         className="glass-panel" 
         style={{
           width: '100%',
           maxWidth,
-          margin: 'auto',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           animation: 'slideDownModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          minHeight: 0
         }}
       >
         {/* Header */}
@@ -87,10 +89,28 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Content */}
         <div style={{
-          padding: '24px'
+          padding: '24px',
+          overflowY: 'auto',
+          flex: 1,
+          minHeight: 0
         }}>
           {children}
         </div>
+
+        {/* Footer */}
+        {footer && (
+          <div style={{
+            padding: '16px 24px',
+            borderTop: '1px solid var(--border-color)',
+            background: 'var(--bg-tertiary)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '12px',
+            flexShrink: 0
+          }}>
+            {footer}
+          </div>
+        )}
       </div>
 
       <style>{`

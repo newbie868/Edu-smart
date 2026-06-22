@@ -389,8 +389,18 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {/* Add User Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title={`Onboard School ${activeTab.slice(0, -1)}`}>
-        <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Modal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        title={`Onboard School ${activeTab.slice(0, -1)}`}
+        footer={
+          <>
+            <button type="button" onClick={() => setIsAddModalOpen(false)} className="btn btn-secondary">Cancel</button>
+            <button type="submit" form="add-user-form" className="btn btn-primary">Onboard User</button>
+          </>
+        }
+      >
+        <form id="add-user-form" onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
@@ -545,10 +555,6 @@ export const UserManagement: React.FC = () => {
             </>
           )}
 
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button type="button" onClick={() => setIsAddModalOpen(false)} className="btn btn-secondary">Cancel</button>
-            <button type="submit" className="btn btn-primary">Onboard User</button>
-          </div>
         </form>
       </Modal>
 

@@ -251,8 +251,18 @@ export const SchoolManagement: React.FC = () => {
       </div>
 
       {/* Add School Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Register New School">
-        <form onSubmit={handleAddSchool} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Modal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        title="Register New School"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsAddModalOpen(false)} className="btn btn-secondary">Cancel</button>
+            <button type="submit" form="add-school-form" className="btn btn-primary">Create School</button>
+          </>
+        }
+      >
+        <form id="add-school-form" onSubmit={handleAddSchool} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-group">
             <label className="form-label">School Name</label>
             <input type="text" className="form-input" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Springfield Academy" />
@@ -305,17 +315,22 @@ export const SchoolManagement: React.FC = () => {
               <input type="date" className="form-input" required value={planExpiry} onChange={e => setPlanExpiry(e.target.value)} />
             </div>
           </div>
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button type="button" onClick={() => setIsAddModalOpen(false)} className="btn btn-secondary">Cancel</button>
-            <button type="submit" className="btn btn-primary">Create School</button>
-          </div>
         </form>
       </Modal>
 
       {/* Edit School Modal */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit School Details">
-        <form onSubmit={handleEditSchool} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Modal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        title="Edit School Details"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn btn-secondary">Cancel</button>
+            <button type="submit" form="edit-school-form" className="btn btn-primary">Save Changes</button>
+          </>
+        }
+      >
+        <form id="edit-school-form" onSubmit={handleEditSchool} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-group">
             <label className="form-label">School Name</label>
             <input type="text" className="form-input" required value={name} onChange={e => setName(e.target.value)} />
@@ -350,11 +365,6 @@ export const SchoolManagement: React.FC = () => {
               <label className="form-label">Plan Expiry Date</label>
               <input type="date" className="form-input" required value={planExpiry} onChange={e => setPlanExpiry(e.target.value)} />
             </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn btn-secondary">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save Changes</button>
           </div>
         </form>
       </Modal>
