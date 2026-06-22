@@ -24,76 +24,121 @@ export const dbService = {
   },
 
   async createSchoolWithPrincipal(schoolData: any, principalData: any): Promise<{ school: any, principal: any }> {
-    const batch = writeBatch(db);
-    
-    // Generate new school document ref with auto-generated ID
-    const schoolRef = doc(collection(db, 'schools'));
-    const schoolId = schoolRef.id;
-    const schoolDoc = { 
-      ...schoolData, 
-      id: schoolId, 
-      createdAt: new Date().toISOString() 
-    };
-    
-    // Generate new user document ref with auto-generated ID
-    const userRef = doc(collection(db, 'users'));
-    const userDocId = userRef.id;
-    const principalDoc = {
-      uid: principalData.uid,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      ...principalData,
-      schoolId: schoolId,
-      email: principalData.email.toLowerCase()
-    };
-    
-    // Ensure school principalId matches the principal's UID
-    schoolDoc.principalId = principalData.uid;
-    
-    batch.set(schoolRef, schoolDoc);
-    batch.set(userRef, principalDoc);
-    
-    await batch.commit();
-    
-    return { 
-      school: schoolDoc, 
-      principal: { docId: userDocId, ...principalDoc } 
-    };
+    console.log("[dbService] createSchoolWithPrincipal called. schoolData:", schoolData, "principalData:", principalData);
+    try {
+      const batch = writeBatch(db);
+      
+      const schoolRef = doc(collection(db, 'schools'));
+      const schoolId = schoolRef.id;
+      const schoolDoc = { 
+        ...schoolData, 
+        id: schoolId, 
+        createdAt: new Date().toISOString() 
+      };
+      
+      const userRef = doc(collection(db, 'users'));
+      const userDocId = userRef.id;
+      const principalDoc = {
+        uid: principalData.uid,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        ...principalData,
+        schoolId: schoolId,
+        email: principalData.email.toLowerCase()
+      };
+      
+      schoolDoc.principalId = principalData.uid;
+      
+      console.log("[dbService] Staging school write in batch:", { path: "schools/" + schoolId, data: schoolDoc });
+      batch.set(schoolRef, schoolDoc);
+      
+      console.log("[dbService] Staging principal user write in batch:", { path: "users/" + userDocId, data: principalDoc });
+      batch.set(userRef, principalDoc);
+      
+      console.log("[dbService] Committing batch write...");
+      await batch.commit();
+      console.log("[dbService] Batch write committed successfully!");
+      
+      return { 
+        school: schoolDoc, 
+        principal: { docId: userDocId, ...principalDoc } 
+      };
+    } catch (err) {
+      console.error("[dbService] Error committing createSchoolWithPrincipal batch:", err);
+      throw err;
+    }
   },
 
   async updateSchool(schoolId: string, data: any): Promise<any> {
-    await updateDoc(doc(db, 'schools', schoolId), data);
-    return { id: schoolId, ...data };
+    console.log("[dbService] updateSchool called for schoolId:", schoolId, "data:", data);
+    try {
+      await updateDoc(doc(db, 'schools', schoolId), data);
+      console.log("[dbService] updateSchool completed successfully");
+      return { id: schoolId, ...data };
+    } catch (err) {
+      console.error("[dbService] Error in updateSchool:", err);
+      throw err;
+    }
   },
 
   // --- USERS ---
   async getUser(uid: string): Promise<any> {
-    const q = query(collection(db, 'users'), where('uid', '==', uid));
-    const snap = await getDocs(q);
-    return snap.empty ? null : { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
+    console.log("[dbService] getUser called with uid:", uid);
+    try {
+      const q = query(collection(db, 'users'), where('uid', '==', uid));
+      const snap = await getDocs(q);
+      console.log("[dbService] getUser query completed. Empty result:", snap.empty);
+      if (!snap.empty) {
+        console.log("[dbService] getUser found document:", { docId: snap.docs[0].id, data: snap.docs[0].data() });
+        return { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
+      }
+      return null;
+    } catch (err) {
+      console.error("[dbService] Error in getUser:", err);
+      throw err;
+    }
   },
 
   async getUserByEmail(email: string): Promise<any> {
-    const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
-    const snap = await getDocs(q);
-    return snap.empty ? null : { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
+    console.log("[dbService] getUserByEmail called with email:", email);
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
+      const snap = await getDocs(q);
+      console.log("[dbService] getUserByEmail query completed. Empty result:", snap.empty);
+      if (!snap.empty) {
+        console.log("[dbService] getUserByEmail found document:", { docId: snap.docs[0].id, data: snap.docs[0].data() });
+        return { docId: snap.docs[0].id, ...snap.docs[0].data() as any };
+      }
+      return null;
+    } catch (err) {
+      console.error("[dbService] Error in getUserByEmail:", err);
+      throw err;
+    }
   },
 
   async createUser(uid: string, userData: any): Promise<any> {
-    const newUser = {
-      uid,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      ...userData,
-      email: userData.email.toLowerCase()
-    };
-    // Let Firestore auto-generate the document ID
-    const docRef = await addDoc(collection(db, 'users'), newUser);
-    return { docId: docRef.id, ...newUser };
+    console.log("[dbService] createUser called with uid:", uid, "userData:", userData);
+    try {
+      const newUser = {
+        uid,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        ...userData,
+        email: userData.email.toLowerCase()
+      };
+      // Let Firestore auto-generate the document ID
+      const docRef = await addDoc(collection(db, 'users'), newUser);
+      console.log("[dbService] createUser added document. docId:", docRef.id, "newUser:", newUser);
+      return { docId: docRef.id, ...newUser };
+    } catch (err) {
+      console.error("[dbService] Error in createUser:", err);
+      throw err;
+    }
   },
 
   async syncUserMapping(docId: string, profile: any): Promise<void> {
     const uid = profile.uid;
+    console.log("[dbService] syncUserMapping called. docId:", docId, "profile:", profile);
     if (uid && !uid.startsWith('user-')) {
       const syncFields = {
         docId,
@@ -101,36 +146,67 @@ export const dbService = {
         schoolId: profile.schoolId || null,
         isActive: profile.isActive
       };
-      await setDoc(doc(db, 'user_mappings', uid), syncFields, { merge: true });
+      try {
+        console.log("[dbService] syncUserMapping: Attempting to set mapping at user_mappings/" + uid, syncFields);
+        await setDoc(doc(db, 'user_mappings', uid), syncFields, { merge: true });
+        console.log("[dbService] syncUserMapping: Successfully wrote user_mappings/" + uid);
+      } catch (err) {
+        console.error("[dbService] syncUserMapping failed for user_mappings/" + uid + ":", err);
+        throw err;
+      }
+    } else {
+      console.log("[dbService] syncUserMapping skipped. Missing or temporary UID:", uid);
     }
   },
 
   async updateUser(uid: string, data: any): Promise<any> {
-    const q = query(collection(db, 'users'), where('uid', '==', uid));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const docId = snap.docs[0].id;
-      const userDoc = snap.docs[0].data();
-      await updateDoc(doc(db, 'users', docId), data);
-      
-      const mergedUser = { ...userDoc, ...data };
-      await dbService.syncUserMapping(docId, mergedUser);
-      return { docId, uid, ...data };
+    console.log("[dbService] updateUser called with uid:", uid, "data:", data);
+    try {
+      const q = query(collection(db, 'users'), where('uid', '==', uid));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docId = snap.docs[0].id;
+        const userDoc = snap.docs[0].data();
+        console.log("[dbService] updateUser found doc. docId:", docId, "Original data:", userDoc);
+        
+        console.log("[dbService] updateUser: Updating users/" + docId, data);
+        await updateDoc(doc(db, 'users', docId), data);
+        console.log("[dbService] updateUser: Successfully updated users/" + docId);
+        
+        const mergedUser = { ...userDoc, ...data };
+        await dbService.syncUserMapping(docId, mergedUser);
+        return { docId, uid, ...data };
+      }
+      console.error("[dbService] updateUser: User not found with uid:", uid);
+      throw new Error("User not found");
+    } catch (err) {
+      console.error("[dbService] Error in updateUser:", err);
+      throw err;
     }
-    throw new Error("User not found");
   },
 
   async updateUserByDocId(docId: string, data: any): Promise<any> {
-    const snap = await getDoc(doc(db, 'users', docId));
-    if (snap.exists()) {
-      const userDoc = snap.data();
-      await updateDoc(doc(db, 'users', docId), data);
-      
-      const mergedUser = { ...userDoc, ...data };
-      await dbService.syncUserMapping(docId, mergedUser);
-      return { docId, ...mergedUser };
+    console.log("[dbService] updateUserByDocId called with docId:", docId, "data:", data);
+    try {
+      const snap = await getDoc(doc(db, 'users', docId));
+      if (snap.exists()) {
+        const userDoc = snap.data();
+        console.log("[dbService] updateUserByDocId found doc. Original data:", userDoc);
+        
+        console.log("[dbService] updateUserByDocId: Updating users/" + docId, data);
+        await updateDoc(doc(db, 'users', docId), data);
+        console.log("[dbService] updateUserByDocId: Successfully updated users/" + docId);
+        
+        const mergedUser = { ...userDoc, ...data };
+        await dbService.syncUserMapping(docId, mergedUser);
+        return { docId, ...mergedUser };
+      }
+      console.error("[dbService] updateUserByDocId: User not found with docId:", docId);
+      throw new Error("User not found");
+    } catch (err) {
+      console.error("[dbService] Error in updateUserByDocId:", err);
+      throw err;
     }
-    throw new Error("User not found");
   },
 
   async getUsers(schoolId: string | null): Promise<any[]> {
