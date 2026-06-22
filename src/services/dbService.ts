@@ -54,6 +54,19 @@ export const dbService = {
     return { docId: docRef.id, ...newUser };
   },
 
+  async syncUserMapping(docId: string, profile: any): Promise<void> {
+    const uid = profile.uid;
+    if (uid && !uid.startsWith('user-')) {
+      const syncFields = {
+        docId,
+        role: profile.role,
+        schoolId: profile.schoolId || null,
+        isActive: profile.isActive
+      };
+      await setDoc(doc(db, 'user_mappings', uid), syncFields, { merge: true });
+    }
+  },
+
   async updateUser(uid: string, data: any): Promise<any> {
     const q = query(collection(db, 'users'), where('uid', '==', uid));
     const snap = await getDocs(q);
@@ -62,19 +75,8 @@ export const dbService = {
       const userDoc = snap.docs[0].data();
       await updateDoc(doc(db, 'users', docId), data);
       
-      // Sync to user_mappings if uid is valid
-      const syncFields: any = {};
-      if (data.role !== undefined) syncFields.role = data.role;
-      if (data.schoolId !== undefined) syncFields.schoolId = data.schoolId;
-      if (data.isActive !== undefined) syncFields.isActive = data.isActive;
-      if (Object.keys(syncFields).length > 0) {
-        try {
-          await updateDoc(doc(db, 'user_mappings', uid), syncFields);
-        } catch (err) {
-          // It's possible the mapping document doesn't exist yet (user hasn't logged in first time)
-          console.warn("Could not sync user_mappings (user may not have logged in yet):", err);
-        }
-      }
+      const mergedUser = { ...userDoc, ...data };
+      await dbService.syncUserMapping(docId, mergedUser);
       return { docId, uid, ...data };
     }
     throw new Error("User not found");
@@ -86,20 +88,9 @@ export const dbService = {
       const userDoc = snap.data();
       await updateDoc(doc(db, 'users', docId), data);
       
-      const uid = data.uid || userDoc.uid;
-      // Sync to user_mappings if the user has logged in and has a mapping document
-      if (uid && !uid.startsWith('user-')) {
-        const syncFields: any = { docId };
-        if (data.role !== undefined || userDoc.role !== undefined) syncFields.role = data.role !== undefined ? data.role : userDoc.role;
-        if (data.schoolId !== undefined || userDoc.schoolId !== undefined) syncFields.schoolId = data.schoolId !== undefined ? data.schoolId : userDoc.schoolId;
-        if (data.isActive !== undefined || userDoc.isActive !== undefined) syncFields.isActive = data.isActive !== undefined ? data.isActive : userDoc.isActive;
-        try {
-          await setDoc(doc(db, 'user_mappings', uid), syncFields, { merge: true });
-        } catch (err) {
-          console.warn("Could not sync user_mappings:", err);
-        }
-      }
-      return { docId, ...userDoc, ...data };
+      const mergedUser = { ...userDoc, ...data };
+      await dbService.syncUserMapping(docId, mergedUser);
+      return { docId, ...mergedUser };
     }
     throw new Error("User not found");
   },

@@ -75,6 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Migrate all database references from the old temporary UID to the new real UID
           await dbService.migrateUserReferences(oldUid, uid, profile.role, profile.schoolId);
         }
+      } else {
+        // Self-healing: Always sync mapping document on subsequent logins
+        await dbService.syncUserMapping(profile.docId, profile);
       }
 
       if (!profile) {

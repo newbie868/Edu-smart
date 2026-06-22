@@ -41,7 +41,7 @@ service cloud.firestore {
         request.auth.uid == uid &&
         get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.email.toLowerCase() == request.auth.token.email.toLowerCase() &&
         request.resource.data.role == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.role &&
-        request.resource.data.schoolId == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.schoolId &&
+        request.resource.data.get('schoolId', null) == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.get('schoolId', null) &&
         request.resource.data.isActive == get(/databases/$(database)/documents/users/$(request.resource.data.docId)).data.isActive
       );
     }
