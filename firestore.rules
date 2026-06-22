@@ -7,30 +7,41 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Retrieve user document from the global user_mappings collection safely
+    // Retrieve user document from the global user_mappings collection
     function getUserData() {
       let path = /databases/$(database)/documents/user_mappings/$(request.auth.uid);
-      return exists(path) ? get(path).data : {"role": "", "schoolId": "", "isActive": false};
+      return get(path).data;
+    }
+
+    // Verify if user mapping exists in the user_mappings collection
+    function hasUserData() {
+      let path = /databases/$(database)/documents/user_mappings/$(request.auth.uid);
+      return exists(path);
     }
     
-    // Check if user has Super Admin role
+    // Check if user has Super Admin role and is active
     function isSuperAdmin() {
-      return loggedIn() && getUserData().role == 'super_admin' && getUserData().isActive == true;
+      return loggedIn() && 
+             hasUserData() && 
+             getUserData().get('role', '') == 'super_admin' && 
+             getUserData().get('isActive', false) == true;
     }
     
     // Verify if user belongs to the specified school and is active
     function isSchoolMember(schoolId) {
       return loggedIn() && 
-             getUserData().schoolId == schoolId && 
-             getUserData().isActive == true;
+             hasUserData() && 
+             getUserData().get('schoolId', '') == schoolId && 
+             getUserData().get('isActive', false) == true;
     }
 
     // Check if user is a principal of the specified school and is active
     function isPrincipalOf(schoolId) {
       return loggedIn() && 
-             getUserData().role == 'principal' && 
-             getUserData().schoolId == schoolId && 
-             getUserData().isActive == true;
+             hasUserData() && 
+             getUserData().get('role', '') == 'principal' && 
+             getUserData().get('schoolId', '') == schoolId && 
+             getUserData().get('isActive', false) == true;
     }
 
     // --- USER MAPPINGS COLLECTION ---
@@ -54,7 +65,7 @@ service cloud.firestore {
         resource.data.uid == request.auth.uid || 
         resource.data.email == request.auth.token.email ||
         isSuperAdmin() || 
-        (resource != null && getUserData().schoolId == resource.data.schoolId)
+        (resource != null && isSchoolMember(resource.data.schoolId))
       );
       // Only Super Admins and the Principal of the same school can create user profiles.
       allow create: if isSuperAdmin() || (
@@ -96,7 +107,7 @@ service cloud.firestore {
     // --- SCHOOLS COLLECTION ---
     match /schools/{schoolId} {
       // Members of a school can read their school info. Super Admin has full access.
-      allow read: if loggedIn() && (isSuperAdmin() || getUserData().schoolId == schoolId);
+      allow read: if loggedIn() && (isSuperAdmin() || (hasUserData() && getUserData().get('schoolId', '') == schoolId));
       allow write: if isSuperAdmin();
     }
 
