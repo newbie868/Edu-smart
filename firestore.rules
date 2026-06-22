@@ -39,7 +39,7 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || (
         loggedIn() && 
         request.auth.uid == uid &&
-        get(/databases/$(database)/documents/users/$(request.resource.data.get('docId', ''))).data.get('email', '').toLowerCase() == request.auth.token.email.toLowerCase() &&
+        get(/databases/$(database)/documents/users/$(request.resource.data.get('docId', ''))).data.get('email', '') == request.auth.token.email &&
         request.resource.data.get('role', '') == get(/databases/$(database)/documents/users/$(request.resource.data.get('docId', ''))).data.get('role', '') &&
         request.resource.data.get('schoolId', null) == get(/databases/$(database)/documents/users/$(request.resource.data.get('docId', ''))).data.get('schoolId', null) &&
         request.resource.data.get('isActive', false) == get(/databases/$(database)/documents/users/$(request.resource.data.get('docId', ''))).data.get('isActive', false)
@@ -49,10 +49,10 @@ service cloud.firestore {
     // --- USERS COLLECTION ---
     match /users/{userId} {
       // Users can read their own profile (by UID or email during login), Super Admin can read all, and members of the same school can read profiles in their tenant.
-      // Firestore queries require simple property access (e.g. resource.data.uid) for query validation to succeed.
+      // Firestore queries require simple property access (e.g. resource.data.uid) without function calls for query validation to succeed.
       allow read: if loggedIn() && (
         resource.data.uid == request.auth.uid || 
-        resource.data.email.toLowerCase() == request.auth.token.email.toLowerCase() ||
+        resource.data.email == request.auth.token.email ||
         isSuperAdmin() || 
         (resource != null && getUserData().schoolId == resource.data.schoolId)
       );
@@ -73,7 +73,7 @@ service cloud.firestore {
            request.resource.data.get('schoolId', null) == resource.data.get('schoolId', null))
           ||
           // Case 2: First-time binding of Google UID to pre-created user
-          (resource.data.email.toLowerCase() == request.auth.token.email.toLowerCase() &&
+          (resource.data.email == request.auth.token.email &&
            request.resource.data.email == resource.data.email &&
            request.resource.data.uid == request.auth.uid &&
            request.resource.data.role == resource.data.role &&
@@ -88,8 +88,8 @@ service cloud.firestore {
       );
       allow delete: if isSuperAdmin() || (
         loggedIn() && 
-        isPrincipalOf(resource.data.get('schoolId', '')) &&
-        (request.resource.data.get('role', '') == 'teacher' || request.resource.data.get('role', '') == 'student' || request.resource.data.get('role', '') == 'parent')
+        isPrincipalOf(resource.data.schoolId) &&
+        (resource.data.role == 'teacher' || resource.data.role == 'student' || resource.data.role == 'parent')
       );
     }
     
