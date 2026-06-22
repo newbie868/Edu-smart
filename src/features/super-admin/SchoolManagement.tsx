@@ -44,26 +44,22 @@ export const SchoolManagement: React.FC = () => {
       // 1. Create a dummy/temp principal UID
       const principalUid = `user-principal-${Date.now()}`;
       
-      // 2. Create school
+      // 2. Create school payload
       const schoolPayload = {
         name,
         address,
         phone,
         planName,
         planExpiry: new Date(planExpiry).toISOString(),
-        principalId: principalUid,
         isActive: true
       };
       
-      const newSchool = await dbService.createSchool(schoolPayload);
-      
-      // 3. Create Principal User
-      await dbService.createUser(principalUid, {
+      // 3. Create both school and principal in a single atomic batch operation
+      await dbService.createSchoolWithPrincipal(schoolPayload, {
+        uid: principalUid,
         email: principalEmail,
         name: principalName,
-        role: 'principal',
-        schoolId: newSchool.id,
-        isActive: true
+        role: 'principal'
       });
 
       // Reset

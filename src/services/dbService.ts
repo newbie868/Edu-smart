@@ -1,5 +1,5 @@
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, addDoc, deleteDoc 
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, addDoc, deleteDoc, writeBatch
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -21,6 +21,44 @@ export const dbService = {
     const docData = { ...schoolData, id, createdAt: new Date().toISOString() };
     await setDoc(schoolRef, docData);
     return docData;
+  },
+
+  async createSchoolWithPrincipal(schoolData: any, principalData: any): Promise<{ school: any, principal: any }> {
+    const batch = writeBatch(db);
+    
+    // Generate new school document ref with auto-generated ID
+    const schoolRef = doc(collection(db, 'schools'));
+    const schoolId = schoolRef.id;
+    const schoolDoc = { 
+      ...schoolData, 
+      id: schoolId, 
+      createdAt: new Date().toISOString() 
+    };
+    
+    // Generate new user document ref with auto-generated ID
+    const userRef = doc(collection(db, 'users'));
+    const userDocId = userRef.id;
+    const principalDoc = {
+      uid: principalData.uid,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      ...principalData,
+      schoolId: schoolId,
+      email: principalData.email.toLowerCase()
+    };
+    
+    // Ensure school principalId matches the principal's UID
+    schoolDoc.principalId = principalData.uid;
+    
+    batch.set(schoolRef, schoolDoc);
+    batch.set(userRef, principalDoc);
+    
+    await batch.commit();
+    
+    return { 
+      school: schoolDoc, 
+      principal: { docId: userDocId, ...principalDoc } 
+    };
   },
 
   async updateSchool(schoolId: string, data: any): Promise<any> {
