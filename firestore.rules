@@ -7,9 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Retrieve user document from the global user_mappings collection
+    // Retrieve user document from the global user_mappings collection safely
     function getUserData() {
-      return get(/databases/$(database)/documents/user_mappings/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/user_mappings/$(request.auth.uid);
+      return exists(path) ? get(path).data : {"role": "", "schoolId": "", "isActive": false};
     }
     
     // Check if user has Super Admin role
