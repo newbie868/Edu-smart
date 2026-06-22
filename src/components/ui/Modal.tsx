@@ -40,13 +40,14 @@ export const Modal: React.FC<ModalProps> = ({
       inset: 0,
       zIndex: 1000,
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      padding: '16px',
+      padding: '40px 16px',
       background: 'rgba(15, 23, 42, 0.4)',
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
-      animation: 'fadeInOverlay 0.2s ease-out forwards'
+      animation: 'fadeInOverlay 0.2s ease-out forwards',
+      overflowY: 'auto'
     }}>
       <div 
         className="glass-panel" 
@@ -54,6 +55,8 @@ export const Modal: React.FC<ModalProps> = ({
           width: '100%',
           maxWidth,
           maxHeight: '90vh',
+          minHeight: 0,
+          margin: 'auto',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
