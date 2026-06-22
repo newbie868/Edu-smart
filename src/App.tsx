@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Loader } from './components/ui/Loader';
 import { PageContainer } from './components/layout/PageContainer';
 import Login from './features/auth/Login';
+import DiagnosticPage from './features/debug/DiagnosticPage';
 
 // Import Super Admin Panels
 import SADashboard from './features/super-admin/Dashboard';
@@ -141,6 +142,14 @@ const EduSmartApp: React.FC = () => {
 };
 
 export const App: React.FC = () => {
+  // Diagnostic mode: append ?debug=1 to URL to show production Firestore trace
+  const isDebug = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('debug') === '1';
+
+  if (isDebug) {
+    return <DiagnosticPage />;
+  }
+
   return (
     <ErrorBoundary>
       <AuthProvider>
