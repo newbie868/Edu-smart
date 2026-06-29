@@ -46,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
     ],
     teacher: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'timetable', label: 'My Timetable', icon: Clock },
       { id: 'attendance', label: 'Mark Attendance', icon: CheckSquare },
       { id: 'marks', label: 'Enter Marks', icon: FileCheck },
       { id: 'homework', label: 'Homework & Materials', icon: BookOpen },
@@ -54,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
     ],
     parent: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'timetable', label: 'Class Timetable', icon: Clock },
       { id: 'academics', label: 'Homework & Materials', icon: BookOpen },
       { id: 'attendance', label: 'Attendance History', icon: CheckSquare },
       { id: 'fees', label: 'Tuition Fees', icon: CreditCard },
@@ -62,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
     ],
     student: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'timetable', label: 'My Timetable', icon: Clock },
       { id: 'academics', label: 'Academic Hub', icon: BookOpen },
       { id: 'attendance', label: 'My Attendance', icon: CheckSquare },
       { id: 'reports', label: 'My Report Card', icon: FileCheck },

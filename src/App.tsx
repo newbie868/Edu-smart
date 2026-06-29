@@ -4,7 +4,6 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Loader } from './components/ui/Loader';
 import { PageContainer } from './components/layout/PageContainer';
 import Login from './features/auth/Login';
-import DiagnosticPage from './features/debug/DiagnosticPage';
 
 // Import Super Admin Panels
 import SADashboard from './features/super-admin/Dashboard';
@@ -24,6 +23,7 @@ import PLeaves from './features/principal/Leaves';
 
 // Import Teacher Panels
 import TDashboard from './features/teacher/Dashboard';
+import TTimetable from './features/teacher/Timetable';
 import TAttendance from './features/teacher/Attendance';
 import TMarksEntry from './features/teacher/MarksEntry';
 import THomework from './features/teacher/Homework';
@@ -43,6 +43,9 @@ import StudentDashboard from './features/student/Dashboard';
 import StudentAcademics from './features/student/Academics';
 import StudentAttendance from './features/student/Attendance';
 import StudentReportCard from './features/student/ReportCard';
+
+// Import Shared Panels
+import StudentParentTimetable from './features/shared/StudentParentTimetable';
 
 const EduSmartApp: React.FC = () => {
   const { user, loading } = useAuth();
@@ -93,40 +96,45 @@ const EduSmartApp: React.FC = () => {
 
       case 'teacher':
         switch (currentTab) {
-          case 'dashboard': return <TDashboard />;
+          case 'dashboard':  return <TDashboard />;
+          case 'timetable':  return <TTimetable />;
           case 'attendance': return <TAttendance />;
-          case 'marks': return <TMarksEntry />;
-          case 'homework': return <THomework />;
-          case 'messages': return <TMessages />;
-          case 'leaves': return <TLeaves />;
-          default: return <TDashboard />;
+          case 'marks':      return <TMarksEntry />;
+          case 'homework':   return <THomework />;
+          case 'messages':   return <TMessages />;
+          case 'leaves':     return <TLeaves />;
+          default:           return <TDashboard />;
         }
 
       case 'parent':
         switch (currentTab) {
-          case 'dashboard': 
+          case 'dashboard':
             return <ParentDashboard selectedChildId={selectedChildId} setSelectedChildId={setSelectedChildId} />;
-          case 'academics': 
+          case 'timetable':
+            // Pass selected child's classId; parent dashboard sets selectedChildId
+            return <StudentParentTimetable />;
+          case 'academics':
             return <ParentAcademics selectedChildId={selectedChildId} />;
-          case 'attendance': 
+          case 'attendance':
             return <ParentAttendance selectedChildId={selectedChildId} />;
-          case 'fees': 
+          case 'fees':
             return <ParentFees selectedChildId={selectedChildId} />;
-          case 'reports': 
+          case 'reports':
             return <ParentReports selectedChildId={selectedChildId} />;
-          case 'messages': 
+          case 'messages':
             return <ParentMessages selectedChildId={selectedChildId} />;
-          default: 
+          default:
             return <ParentDashboard selectedChildId={selectedChildId} setSelectedChildId={setSelectedChildId} />;
         }
 
       case 'student':
         switch (currentTab) {
-          case 'dashboard': return <StudentDashboard />;
-          case 'academics': return <StudentAcademics />;
+          case 'dashboard':  return <StudentDashboard />;
+          case 'timetable':  return <StudentParentTimetable />;
+          case 'academics':  return <StudentAcademics />;
           case 'attendance': return <StudentAttendance />;
-          case 'reports': return <StudentReportCard />;
-          default: return <StudentDashboard />;
+          case 'reports':    return <StudentReportCard />;
+          default:           return <StudentDashboard />;
         }
 
       default:
@@ -142,14 +150,6 @@ const EduSmartApp: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  // Diagnostic mode: append ?debug=1 to URL to show production Firestore trace
-  const isDebug = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('debug') === '1';
-
-  if (isDebug) {
-    return <DiagnosticPage />;
-  }
-
   return (
     <ErrorBoundary>
       <AuthProvider>

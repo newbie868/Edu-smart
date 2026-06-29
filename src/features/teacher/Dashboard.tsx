@@ -15,38 +15,22 @@ export const Dashboard: React.FC = () => {
       if (!school || !user) return;
       setLoading(true);
       try {
-        const subjList = await dbService.getSubjects(school.id);
-        const noticeList = await dbService.getNotices(school.id);
-        
-        // Find all timetable slots matching this teacher by scanning timetables across classes and sections
-        const classes = await dbService.getClasses(school.id);
-        const sections = await dbService.getSections(school.id);
-        
-        const teacherSlots: any[] = [];
-        
-        for (const cls of classes) {
-          const classSections = sections.filter(s => s.classId === cls.id);
-          for (const sect of classSections) {
-            const ttList = await dbService.getTimetable(school.id, cls.id, sect.id);
-            ttList.forEach((tt: any) => {
-              tt.slots.forEach((slot: any) => {
-                if (slot.teacherId === user.uid) {
-                  teacherSlots.push({
-                    day: tt.day,
-                    time: slot.time,
-                    subjectId: slot.subjectId,
-                    className: cls.name,
-                    sectionName: sect.name
-                  });
-                }
-              });
-            });
-          }
-        }
+        const [subjList, noticeList, teacherPeriods] = await Promise.all([
+          dbService.getSubjects(school.id),
+          dbService.getNotices(school.id),
+          dbService.getTeacherTimetable(school.id, user.uid),
+        ]);
+
+        // Sort by day then startTime
+        const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        teacherPeriods.sort((a: any, b: any) => {
+          const di = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+          return di !== 0 ? di : (a.startTime || '').localeCompare(b.startTime || '');
+        });
 
         setSubjects(subjList);
         setNotices(noticeList.slice(0, 3));
-        setTimetable(teacherSlots);
+        setTimetable(teacherPeriods);
       } catch (err) {
         console.error("Failed to load teacher metrics:", err);
       } finally {
@@ -134,9 +118,9 @@ export const Dashboard: React.FC = () => {
                   {timetable.map((slot, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{slot.day}</td>
-                      <td>{slot.time}</td>
-                      <td>{slot.className} - {slot.sectionName}</td>
-                      <td style={{ fontWeight: 600 }}>{getSubjectName(slot.subjectId)}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{slot.startTime} – {slot.endTime}</td>
+                      <td>{slot.className || '—'}</td>
+                      <td style={{ fontWeight: 600 }}>{slot.subjectName || getSubjectName(slot.subjectId)}</td>
                     </tr>
                   ))}
                 </tbody>

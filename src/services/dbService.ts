@@ -254,33 +254,85 @@ export const dbService = {
     return { id: docRef.id, ...subjectData };
   },
 
-  // --- TIMETABLE ---
-  async getTimetable(schoolId: string, classId: string, sectionId: string): Promise<any[]> {
+  // --- TIMETABLE (class-level, no sectionId) ---
+
+  /**
+   * Fetch all timetable periods for a class.
+   * Returns an array of period documents sorted by day then startTime.
+   * Old documents that still have sectionId are returned as-is (migration: ignore sectionId).
+   */
+  async getTimetableByClass(schoolId: string, classId: string): Promise<any[]> {
     const q = query(
-      collection(db, 'timetable'), 
+      collection(db, 'timetable'),
       where('schoolId', '==', schoolId),
-      where('classId', '==', classId),
-      where('sectionId', '==', sectionId)
+      where('classId', '==', classId)
     );
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
   },
 
-  async saveTimetable(schoolId: string, classId: string, sectionId: string, day: string, slots: any[]): Promise<void> {
-    const ttData = { schoolId, classId, sectionId, day, slots };
+  /**
+   * Save a full week of timetable periods for a class.
+   * periods: array of { day, startTime, endTime, subjectId, subjectName, teacherId, teacherName }
+   * Strategy: delete all existing periods for this class, then write fresh.
+   */
+  async saveTimetableByClass(
+    schoolId: string,
+    classId: string,
+    className: string,
+    periods: any[]
+  ): Promise<void> {
+    const batch = writeBatch(db);
+    // Delete existing periods for this class
+    const existing = await this.getTimetableByClass(schoolId, classId);
+    existing.forEach(p => batch.delete(doc(db, 'timetable', p.id)));
+    // Write new periods
+    periods.forEach(p => {
+      const ref = doc(collection(db, 'timetable'));
+      batch.set(ref, {
+        schoolId,
+        classId,
+        className,
+        day: p.day,
+        startTime: p.startTime,
+        endTime: p.endTime,
+        subjectId: p.subjectId || '',
+        subjectName: p.subjectName || '',
+        teacherId: p.teacherId || '',
+        teacherName: p.teacherName || '',
+      });
+    });
+    await batch.commit();
+  },
+
+  /**
+   * Fetch all timetable periods assigned to a specific teacher across all classes.
+   */
+  async getTeacherTimetable(schoolId: string, teacherId: string): Promise<any[]> {
     const q = query(
       collection(db, 'timetable'),
       where('schoolId', '==', schoolId),
-      where('classId', '==', classId),
-      where('sectionId', '==', sectionId),
-      where('day', '==', day)
+      where('teacherId', '==', teacherId)
     );
     const snap = await getDocs(q);
-    if (!snap.empty) {
-      await updateDoc(doc(db, 'timetable', snap.docs[0].id), { slots });
-    } else {
-      await addDoc(collection(db, 'timetable'), ttData);
-    }
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  },
+
+  /**
+   * Fetch timetable for a specific class (used by student/parent).
+   * Same as getTimetableByClass but exposed as a named alias.
+   */
+  async getClassTimetable(schoolId: string, classId: string): Promise<any[]> {
+    return this.getTimetableByClass(schoolId, classId);
+  },
+
+  // LEGACY COMPAT — kept so old code that may reference these doesn't crash
+  async getTimetable(schoolId: string, classId: string, sectionId: string): Promise<any[]> {
+    return this.getTimetableByClass(schoolId, classId);
+  },
+  async saveTimetable(schoolId: string, classId: string, sectionId: string, day: string, slots: any[]): Promise<void> {
+    // no-op: callers should use saveTimetableByClass
+    console.warn('[dbService] saveTimetable is deprecated. Use saveTimetableByClass.');
   },
 
   // --- ATTENDANCE ---
