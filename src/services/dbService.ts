@@ -335,6 +335,60 @@ export const dbService = {
     console.warn('[dbService] saveTimetable is deprecated. Use saveTimetableByClass.');
   },
 
+  // --- TIME SLOTS (per-school daily schedule) ---
+
+  /** Sensible default schedule used when a school hasn't configured its own. */
+  getDefaultTimeSlots(schoolId: string): any[] {
+    const defaults = [
+      { name: 'Period 1',  startTime: '08:00', endTime: '08:45', isBreak: false, order: 0 },
+      { name: 'Period 2',  startTime: '08:45', endTime: '09:30', isBreak: false, order: 1 },
+      { name: 'Period 3',  startTime: '09:30', endTime: '10:15', isBreak: false, order: 2 },
+      { name: 'Break',     startTime: '10:15', endTime: '10:30', isBreak: true,  order: 3 },
+      { name: 'Period 4',  startTime: '10:30', endTime: '11:15', isBreak: false, order: 4 },
+      { name: 'Period 5',  startTime: '11:15', endTime: '12:00', isBreak: false, order: 5 },
+      { name: 'Period 6',  startTime: '12:00', endTime: '12:45', isBreak: false, order: 6 },
+      { name: 'Lunch',     startTime: '12:45', endTime: '13:30', isBreak: true,  order: 7 },
+      { name: 'Period 7',  startTime: '13:30', endTime: '14:15', isBreak: false, order: 8 },
+      { name: 'Period 8',  startTime: '14:15', endTime: '15:00', isBreak: false, order: 9 },
+    ];
+    return defaults.map(s => ({ ...s, id: `default_${s.order}`, schoolId }));
+  },
+
+  async getTimeSlots(schoolId: string): Promise<any[]> {
+    const q = query(
+      collection(db, 'time_slots'),
+      where('schoolId', '==', schoolId)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return this.getDefaultTimeSlots(schoolId);
+    const slots = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    return slots.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  },
+
+  async saveTimeSlots(schoolId: string, slots: any[]): Promise<void> {
+    const batch = writeBatch(db);
+    // Delete all existing time_slots for this school
+    const q = query(collection(db, 'time_slots'), where('schoolId', '==', schoolId));
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => batch.delete(doc(db, 'time_slots', d.id)));
+    // Write new slots
+    const now = new Date().toISOString();
+    slots.forEach((slot, idx) => {
+      const ref = doc(collection(db, 'time_slots'));
+      batch.set(ref, {
+        schoolId,
+        name:      slot.name      || `Period ${idx + 1}`,
+        startTime: slot.startTime || '',
+        endTime:   slot.endTime   || '',
+        isBreak:   slot.isBreak   || false,
+        order:     idx,
+        createdAt: slot.createdAt || now,
+        updatedAt: now,
+      });
+    });
+    await batch.commit();
+  },
+
   // --- ATTENDANCE ---
   async getAttendance(schoolId: string, classId: string, sectionId: string, date: string): Promise<any> {
     const docId = `${schoolId}_${classId}_${sectionId}_${date}`;
